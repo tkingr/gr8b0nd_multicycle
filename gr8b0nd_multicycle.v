@@ -65,7 +65,7 @@ module ALU(
         output [15:0] ALU_out,
         output CarryOut // Flag indicating overflow
     );
-    reg [7:0] ALU_result;
+    reg [15:0] ALU_result;
     wire [16:0] temp;
     assign ALU_out = ALU_result; // Wire tied to output reg
     assign temp = {1'b0, A} + {1'b0, B};
@@ -89,7 +89,7 @@ module ALU(
                 ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];
             end
             `OPshi:
-                ALU_result = (A > 0) ? (ALU_result << A) : (ALU_result >> -A);
+                ALU_result = (A > 0) ? (B << A) : (B >> -A);
             `OPshii:
             begin
                 ALU_result[`UPPER16] = (A[`UPPER16] > 0) ? (B[`UPPER16] << A[`UPPER16]) : (B[`UPPER16] >> -A[`UPPER16]);
@@ -154,14 +154,14 @@ module tb_alu;
      );
     initial begin
     // hold reset state for 100 ns.
-      A = 16'h09;
-      B = 16'h00;
+      A = 16'h08;
+      B = 16'h02;
       ALU_select = 8'h70;
       
-      for (i=0;i<=7;i=i+1)
+      for (i=0;i<=2;i=i+1)
       begin
        #10;
-       $display("OPcode: %h ALU Output: %d ALU Carry: %b", ALU_select, ALU_out, CarryOut);
+       $display("OPcode: %h ALU Output: %b ALU Carry: %b", ALU_select, ALU_out, CarryOut);
        ALU_select = ALU_select + 8'h01;
       end;
       
@@ -170,3 +170,4 @@ module tb_alu;
       
     end
 endmodule
+
