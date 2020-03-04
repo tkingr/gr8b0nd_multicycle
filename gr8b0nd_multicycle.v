@@ -1,5 +1,6 @@
  // Basic sizes
-`define WORD 15:0
+`define WORDSIZE 15:0
+`define TAGWORDSIZE 16:0
 `define OP  4:0
 `define REGSIZE 15:0
 `define MEMSIZE 65535:0
@@ -7,12 +8,12 @@
 `define LOWER16 7:0
  
 // Field placements and values
-`define cbit [15]
-`define op0 [15:11]
-`define op1 [15:7]
-`define rd [3:0]
-`define rs [7:4]
-`define imm [10:4]
+`define cbit 15
+`define op0 15:11
+`define op1 15:7
+`define rd 3:0
+`define rs 7:4
+`define imm 10:4
  
 // Branch Instructions
 `define OPbz 4'he
@@ -58,16 +59,20 @@
  
 // Trap Instruction
 `define OPtrap 8'h00
+
+// States
+`define Start 8'h01
+`define Decode 8'h01
  
 module ALU(
-        input [15:0] A, B, // A treated as source, B treated as destination
-        input [7:0] ALU_select, // We are using same # as 8-bit op field
-        output [15:0] ALU_out,
-        output CarryOut // Flag indicating overflow
+        output [`WORDSIZE] ALU_out,
+        output CarryOut, // Flag indicating overflow        
+        input [`WORDSIZE] A, B, // A treated as source, B treated as destination
+        input [`LOWER16] ALU_select // We are using same # as 8-bit op field
     );
     reg [15:0] ALU_result;
     wire [16:0] temp;
-    assign ALU_out = ALU_result; // Wire tied to output reg
+    assign ALU_out = {CarryOut, ALU_result}; // Wire tied to output reg + carry
     assign temp = {1'b0, A} + {1'b0, B};
     assign CarryOut = temp[16]; // Carryout flag
  
@@ -138,19 +143,20 @@ endmodule
 
 module tb_alu;
 //Inputs
- reg[15:0] A,B;
- reg[7:0] ALU_select;
+ reg[`WORDSIZE] A,B;
+ reg[`LOWER16] ALU_select;
 
 //Outputs
- wire[15:0] ALU_out;
+ wire[`TAGWORDSIZE] ALU_out;
  wire CarryOut;
  // Verilog code for ALU
  integer i;
  ALU test_unit(
-            A,B,  // ALU 8-bit Inputs                 
-            ALU_select,// ALU Selection
             ALU_out, // ALU 8-bit Output
-            CarryOut // Carry Out Flag
+            CarryOut, // Carry Out Flag             
+            A,B,  // ALU 8-bit Inputs                 
+            ALU_select// ALU Selection
+
      );
     initial begin
     // hold reset state for 100 ns.
@@ -170,4 +176,42 @@ module tb_alu;
       
     end
 endmodule
+
+module processor(halt, reset, clk);
+    output reg halt;
+    input reset, clk;
+    reg[`REGSIZE] r[`REGSIZE];
+    wire[`WORDSIZE] alu_output;
+    wire alu_carry;
+    reg[`WORDSIZE] text[`MEMSIZE];
+    reg[`WORDSIZE] data[`MEMSIZE];
+    reg[`WORDSIZE] pc = 0;
+    reg[`WORDSIZE] inst_reg;
+    reg[`imm] sys;
+    reg[`rd] reg_num; // Holds register number
+    reg[`rd] rs;
+    reg[`rd] rd;
+    reg[`op1] op;
+    reg[`op1] state; // IDK
+
+    ALU my_alu(alu_output, alu_carry, rs, rd, op);
+
+    always @(posedge reset) begin
+        halt <= 0;
+        pc <= 0;
+        state <= `Start;
+    // Initializing instructions with readmem/h
+    end
+
+    always @(posedge clk) begin
+        case(state)
+            `Start: begin ir <= text[pc]; end
+            `Decode: begin
+                        pc <= pc + 1;
+                        op <= inst_reg[`op1];
+                        reg_num <= inst_reg[`rd];
+
+endmodule
+    
+    
 
