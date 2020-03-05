@@ -2,15 +2,16 @@
 `define WORDSIZE 15:0
 `define TAGWORDSIZE 16:0
 `define OP  4:0
+`define REGCOUNT 15:0
 `define REGSIZE 15:0
 `define MEMSIZE 65535:0
 `define UPPER16 15:8
 `define LOWER16 7:0
  
 // Field placements and values
-`define cbit 15
-`define op0 15:11
-`define op1 15:7
+`define is_const 15
+`define op0 15:12
+`define op1 15:8
 `define rd 3:0
 `define rs 7:4
 `define imm 10:4
@@ -60,9 +61,11 @@
 // Trap Instruction
 `define OPtrap 8'h00
 
-// States
-`define Start 8'h01
-`define Decode 8'h01
+// States (not opcodes)
+`define Start 8'h02
+`define Decode 8'h03
+`define ExecuteALU 8'h04
+`define ExecuteConstant 8'h05
  
 module ALU(
         output [`WORDSIZE] ALU_out,
@@ -72,12 +75,11 @@ module ALU(
     );
     reg [15:0] ALU_result;
     wire [16:0] temp;
-    assign ALU_out = {CarryOut, ALU_result}; // Wire tied to output reg + carry
+    assign ALU_out = ALU_result; // Wire tied to output reg
     assign temp = {1'b0, A} + {1'b0, B};
     assign CarryOut = temp[16]; // Carryout flag
  
-    always @(*)
-    begin
+    always @(*) begin
         case(ALU_select)
             `OPaddi:
                 ALU_result = (A + B);
@@ -141,46 +143,47 @@ module ALU(
     end
 endmodule
 
+/*
 module tb_alu;
-//Inputs
- reg[`WORDSIZE] A,B;
- reg[`LOWER16] ALU_select;
+    //Inputs
+    reg[`WORDSIZE] A,B;
+    reg[`LOWER16] ALU_select;
 
-//Outputs
- wire[`TAGWORDSIZE] ALU_out;
- wire CarryOut;
- // Verilog code for ALU
- integer i;
- ALU test_unit(
-            ALU_out, // ALU 8-bit Output
-            CarryOut, // Carry Out Flag             
-            A,B,  // ALU 8-bit Inputs                 
-            ALU_select// ALU Selection
-
-     );
-    initial begin
-    // hold reset state for 100 ns.
-      A = 16'h08;
-      B = 16'h02;
-      ALU_select = 8'h70;
-      
-      for (i=0;i<=2;i=i+1)
-      begin
-       #10;
-       $display("OPcode: %h ALU Output: %b ALU Carry: %b", ALU_select, ALU_out, CarryOut);
-       ALU_select = ALU_select + 8'h01;
-      end;
-      
-      A = 16'hF6;
-      B = 16'h0A;
-      
-    end
+    //Outputs
+    wire[`WORDSIZE] ALU_out;
+    wire CarryOut;
+    // Verilog code for ALU
+    integer i;
+    ALU test_unit(
+                ALU_out, // ALU 8-bit Output
+                CarryOut, // Carry Out Flag             
+                A,B,  // ALU 8-bit Inputs                 
+                ALU_select// ALU Selection
+        );
+        initial begin
+        // hold reset state for 100 ns.
+        A = 16'h08;
+        B = 16'h02;
+        ALU_select = 8'h70;
+        
+        for (i=0;i<=2;i=i+1)
+        begin
+        #10;
+        $display("OPcode: %h ALU Output: %b ALU Carry: %b", ALU_select, ALU_out, CarryOut);
+        ALU_select = ALU_select + 8'h01;
+        end
+        
+        A = 16'hF6;
+        B = 16'h0A;
+        
+        end
 endmodule
+*/
 
 module processor(halt, reset, clk);
     output reg halt;
     input reset, clk;
-    reg[`REGSIZE] r[`REGSIZE];
+    reg[`REGCOUNT] register[`REGSIZE];
     wire[`WORDSIZE] alu_output;
     wire alu_carry;
     reg[`WORDSIZE] text[`MEMSIZE];
@@ -188,30 +191,64 @@ module processor(halt, reset, clk);
     reg[`WORDSIZE] pc = 0;
     reg[`WORDSIZE] inst_reg;
     reg[`imm] sys;
-    reg[`rd] reg_num; // Holds register number
-    reg[`rd] rs;
-    reg[`rd] rd;
+    reg[`rd] rs_num;
+    reg[`rd] rd_num;
+    reg[`LOWER16] test;
     reg[`op1] op;
     reg[`op1] state; // IDK
 
-    ALU my_alu(alu_output, alu_carry, rs, rd, op);
+    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op);
 
     always @(posedge reset) begin
         halt <= 0;
         pc <= 0;
         state <= `Start;
     // Initializing instructions with readmem/h
+        register[1] = 3;
+        register[2] = 5;
+        $readmemh0(text);
     end
 
     always @(posedge clk) begin
-        case(state)
-            `Start: begin ir <= text[pc]; end
+        case (state)
+            `Start: begin 
+                inst_reg <= text[pc]; 
+                state <= `Decode;
+            end
             `Decode: begin
-                        pc <= pc + 1;
-                        op <= inst_reg[`op1];
-                        reg_num <= inst_reg[`rd];
-
+                pc <= pc + 1;            
+                op <= inst_reg[`op1];
+                rs_num <= inst_reg[`rs];
+                rd_num <= inst_reg[`rd];
+                state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteALU);
+            end
+            `ExecuteALU: begin
+                case (op)
+                    default: test <= alu_output;
+                endcase
+            state <= `Start;
+            end
+            default: begin halt <= 1; end
+        endcase
+    end
 endmodule
-    
-    
 
+module tb_processor;
+    reg reset = 0;
+    reg clk = 0;
+    wire halted;
+
+    processor my_processor(halted, reset, clk);
+
+    initial begin
+        $dumpfile;
+        $dumpvars(0, my_processor);
+        #10 reset = 1;
+        #10 reset = 0;
+        while (!halted) begin
+            #10 clk = 1;
+            #10 clk = 0;
+        end
+        $finish;
+    end
+endmodule

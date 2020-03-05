@@ -1,0 +1,60 @@
+$date
+	Thu Mar 05 01:29:18 2020
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1s
+$end
+$scope module tb_processor $end
+$scope module my_processor $end
+$var wire 1 ! clk $end
+$var wire 1 " reset $end
+$var wire 16 # alu_output [15:0] $end
+$var wire 1 $ alu_carry $end
+$var reg 1 % halt $end
+$var reg 16 & inst_reg [15:0] $end
+$var reg 8 ' op [15:8] $end
+$var reg 16 ( pc [15:0] $end
+$var reg 4 ) rd_num [3:0] $end
+$var reg 4 * rs_num [3:0] $end
+$var reg 8 + state [15:8] $end
+$scope module my_alu $end
+$var wire 16 , A [15:0] $end
+$var wire 8 - ALU_select [7:0] $end
+$var wire 16 . B [15:0] $end
+$var wire 17 / temp [16:0] $end
+$var wire 1 $ CarryOut $end
+$var wire 16 0 ALU_out [15:0] $end
+$var reg 16 1 ALU_result [15:0] $end
+$upscope $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+bx 1
+bx 0
+bx /
+bx .
+bx -
+bx ,
+bx +
+bx *
+bx )
+b0 (
+bx '
+bx &
+x%
+x$
+bx #
+0"
+0!
+$end
+#10
+b10 +
+0%
+1"
+#20
+0"
