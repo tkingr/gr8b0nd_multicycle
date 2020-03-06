@@ -5,6 +5,7 @@
 `define REGCOUNT 15:0
 `define REGSIZE 15:0
 `define MEMSIZE 65535:0
+`define MEMMAX 65535
 `define UPPER16 15:8
 `define LOWER16 7:0
  
@@ -64,7 +65,7 @@
 // States (not opcodes)
 `define Start 8'h02
 `define Decode 8'h03
-`define ExecuteALU 8'h04
+`define ExecuteGeneral 8'h04
 `define ExecuteConstant 8'h05
  
 module ALU(
@@ -81,63 +82,80 @@ module ALU(
  
     always @(*) begin
         case(ALU_select)
+
+            // 2-register instructions
             `OPaddi:
                 ALU_result = (A + B);
-            `OPaddii:
-            begin
+            `OPaddii: begin
                 ALU_result[`UPPER16] = A[`UPPER16] + B[`UPPER16];
                 ALU_result[`LOWER16] = A[`LOWER16] + B[`LOWER16];
             end
             `OPmuli:
                 ALU_result = (A * B);
-            `OPmulii:
-            begin
+            `OPmulii: begin
                 ALU_result[`UPPER16] = A[`UPPER16] * B[`UPPER16];
                 ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];
             end
             `OPshi:
                 ALU_result = (A > 0) ? (B << A) : (B >> -A);
-            `OPshii:
-            begin
+            `OPshii: begin
                 ALU_result[`UPPER16] = (A[`UPPER16] > 0) ? (B[`UPPER16] << A[`UPPER16]) : (B[`UPPER16] >> -A[`UPPER16]);
                 ALU_result[`LOWER16] = (A[`LOWER16] > 0) ? (B[`LOWER16] << A[`LOWER16]) : (B[`LOWER16] >> -A[`LOWER16]);
             end
             `OPslti:
                 ALU_result = (B < A);
-            `OPsltii:
-            begin
+            `OPsltii: begin
                 ALU_result[`UPPER16] = (B[`UPPER16] < A[`UPPER16]);
                 ALU_result[`LOWER16] = (B[`LOWER16] < A[`LOWER16]);
             end
             `OPaddp:
                 ALU_result = (A + B);
-            `OPaddpp:
-            begin
+            `OPaddpp: begin
                 ALU_result[`UPPER16] = A[`UPPER16] + B[`UPPER16];
                 ALU_result[`LOWER16] = A[`LOWER16] + B[`LOWER16];
             end
             `OPmulp:
                 ALU_result = (A * B);
-            `OPmulpp:
-            begin
+            `OPmulpp: begin
                 ALU_result[`UPPER16] = A[`UPPER16] * B[`UPPER16];
                 ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];    
             end
             `OPand:
-                ALU_result = A&B;
+                ALU_result = A & B;
             `OPor:
-                ALU_result = A|B;
+                ALU_result = A | B;
             `OPxor:
-                ALU_result = A^B;
-            `OPnot:
-                ALU_result = ~B;
+                ALU_result = A ^ B;
+
+            // 1-register instructions
+            `OPanyi:
+                ALU_result = (B) ? -1 : 0;
+            `OPanyii: begin
+                ALU_result[`UPPER16] = (B[`UPPER16]) ? -1 : 0;
+                ALU_result[`LOWER16] = (B[`LOWER16]) ? -1 : 0;
+            end
             `OPnegi:
-                ALU_result = -B;
-            `OPnegii:
-            begin
+                ALU_result = -(B);
+            `OPnegii: begin
                 ALU_result[`UPPER16] = -B[`UPPER16];
                 ALU_result[`LOWER16] = -B[`LOWER16];
             end
+            `OPi2p:
+                ALU_result = B;
+            `OPii2pp:
+                ALU_result = B;
+            `OPp2i:
+                ALU_result = B;
+            `OPpp2ii:
+                ALU_result = B;
+            `OPinvp:
+                ALU_result = (1 / B);
+            `OPinvpp: begin
+                ALU_result[`UPPER16] = (1 / B[`UPPER16]);
+                ALU_result[`LOWER16] = (1 / B[`LOWER16]);
+            end
+            `OPnot:
+                ALU_result = ~(B);
             default: ALU_result = A + B;
         endcase
     end
@@ -204,9 +222,10 @@ module processor(halt, reset, clk);
         pc <= 0;
         state <= `Start;
     // Initializing instructions with readmem/h
-        register[1] = 10;
-        register[2] = 20;
+        register[1] = 0;
+        register[2] = 10;
         register[3] = 30;
+        data[0] = 420;
         $readmemh0(text);
     end
 
@@ -222,7 +241,7 @@ module processor(halt, reset, clk);
                 op_0 <= inst_reg[`op0];
                 rs_num <= inst_reg[`rs];
                 rd_num <= inst_reg[`rd];
-                state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteALU);
+                state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteGeneral);
             end
             `ExecuteConstant: begin
                 case (op_0)
@@ -230,13 +249,25 @@ module processor(halt, reset, clk);
                 endcase
                 state <= `Start;
             end
-            `ExecuteALU: begin
+            `ExecuteGeneral: begin
                 case (op_1)
+                    `OPld: begin
+                        if (register[rd_num] > `MEMMAX)
+                            halt <= 1;
+                        else
+                            register[rd_num] <= data[register[rs_num]][`WORDSIZE];
+                    end
+                    `OPst:
+                        begin
+                        if (register[rd_num] > `MEMMAX)
+                            halt <= 1;
+                        else
+                            data[register[rs_num]][`WORDSIZE] <= register[rd_num];
+                    end
                     default: register[rd_num][`REGSIZE] <= alu_output;
                 endcase
                 state <= `Start;
             end
-
             default: begin halt <= 1; end
         endcase
     end
