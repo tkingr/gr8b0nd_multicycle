@@ -71,7 +71,7 @@ module ALU(
         output [`WORDSIZE] ALU_out,
         output CarryOut, // Flag indicating overflow        
         input [`WORDSIZE] A, B, // A treated as source, B treated as destination
-        input [`LOWER16] ALU_select // We are using same # as 8-bit op field
+        input [`LOWER16] ALU_select // We are using same # as 8-bit op_1 field
     );
     reg [15:0] ALU_result;
     wire [16:0] temp;
@@ -193,19 +193,20 @@ module processor(halt, reset, clk);
     reg[`imm] sys;
     reg[`rd] rs_num;
     reg[`rd] rd_num;
-    reg[`LOWER16] test;
-    reg[`op1] op;
-    reg[`op1] state; // IDK
+    reg[`op0] op_0;
+    reg[`op1] op_1;
+    reg[`op1] state;
 
-    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op);
+    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op_1);
 
     always @(posedge reset) begin
         halt <= 0;
         pc <= 0;
         state <= `Start;
     // Initializing instructions with readmem/h
-        register[1] = 3;
-        register[2] = 5;
+        register[1] = 10;
+        register[2] = 20;
+        register[3] = 30;
         $readmemh0(text);
     end
 
@@ -217,17 +218,25 @@ module processor(halt, reset, clk);
             end
             `Decode: begin
                 pc <= pc + 1;            
-                op <= inst_reg[`op1];
+                op_1 <= inst_reg[`op1];
+                op_0 <= inst_reg[`op0];
                 rs_num <= inst_reg[`rs];
                 rd_num <= inst_reg[`rd];
                 state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteALU);
             end
-            `ExecuteALU: begin
-                case (op)
-                    default: test <= alu_output;
+            `ExecuteConstant: begin
+                case (op_0)
+                    default: register[rd_num][`REGSIZE] <= alu_output;
                 endcase
-            state <= `Start;
+                state <= `Start;
             end
+            `ExecuteALU: begin
+                case (op_1)
+                    default: register[rd_num][`REGSIZE] <= alu_output;
+                endcase
+                state <= `Start;
+            end
+
             default: begin halt <= 1; end
         endcase
     end
