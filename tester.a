@@ -1,0 +1,38 @@
+	.text
+start:
+	addi	$1, $2
+	addii	$1, $2
+	addp	$1, $2
+	addpp	$1, $2
+	and	$1, $2
+	anyi	$1
+	anyii	$1
+	bnz	$1, 20
+	bz	$1, 20
+	ci8	$1, 42
+	cii	$1, 2
+	cup	$1, 42
+	i2p	$1
+	ii2pp	$1
+        ld	$1, $2
+	muli	$1, $2
+	mulii	$1, $2
+	mulp	$1, $2
+	mulpp	$1, $2
+	negi	$1
+	negii	$1
+	not	$1
+	or	$1, $2
+	p2i	$1
+	pp2ii	$1
+    jr      $3
+    trap
+    trap
+    trap      
+	shi	$1, $2
+	shii	$1, $2
+	slti	$1, $2
+	sltii	$1, $2
+	st	$1, $2
+	trap
+	xor	$1, $2

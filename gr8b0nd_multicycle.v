@@ -11,6 +11,7 @@
  
 // Field placements and values
 `define is_const 15
+`define msb_8 7
 `define op0 15:12
 `define op1 15:8
 `define rd 3:0
@@ -156,8 +157,126 @@ module ALU(
             end
             `OPnot:
                 ALU_result = ~(B);
-            default: ALU_result = A + B;
+            default: ALU_result = B;
         endcase
+    end
+endmodule
+
+module processor(halt, reset, clk);
+    output reg halt;
+    input reset, clk;
+    reg[`REGCOUNT] register[`REGSIZE];
+    wire[`WORDSIZE] alu_output;
+    wire alu_carry;
+    reg[`WORDSIZE] text[`MEMSIZE];
+    reg[`WORDSIZE] data[`MEMSIZE];
+    reg[`WORDSIZE] pc = 0;
+    reg[`WORDSIZE] inst_reg;
+    reg[`imm] sys;
+    reg[`rd] rs_num;
+    reg[`rd] rd_num;
+    reg[`imm] imm;
+    reg[`op0] op_0;
+    reg[`op1] op_1;
+    reg[`op1] state;
+
+    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op_1);
+
+    always @(posedge reset) begin
+        halt <= 0;
+        pc <= 0;
+        state <= `Start;
+    // Initializing instructions with readmem/h
+        register[1] = 0;
+        register[2] = 0;
+        register[3] = 30;
+        data[0] = 420;
+        $readmemh0(text);
+    end
+
+    always @(posedge clk) begin
+        case (state)
+            `Start: begin 
+                inst_reg <= text[pc];
+                pc <= pc + 1;                 
+                state <= `Decode;
+                end
+            `Decode: begin
+                op_1 <= inst_reg[`op1];
+                op_0 <= inst_reg[`op0];
+                rs_num <= inst_reg[`rs];
+                rd_num <= inst_reg[`rd];
+                imm <= inst_reg[`imm];
+                state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteGeneral);
+                end
+            `ExecuteConstant: begin
+                case (op_0)
+                    `OPbz: begin
+                        if (register[rd_num] == 0)
+                            pc <= imm;
+                        end
+                    `OPbnz: begin
+                        if (register[rd_num] != 0)
+                            pc <= imm;
+                        end
+                    `OPci8: begin
+                        if (imm & 8'h80)
+                            register[rd_num] <= (16'hff00 | (imm & 8'hff));
+                        else
+                            register[rd_num] <= (16'h0000 | (imm & 8'hff));
+                        end
+                    default: register[rd_num] <= alu_output;
+                endcase
+                state <= `Start;
+                end
+            `ExecuteGeneral: begin
+                case (op_1)
+                    `OPld: begin
+                        if (register[rs_num] > `MEMMAX)
+                            halt <= 1;
+                        else
+                            register[rd_num] <= data[register[rs_num]];
+                        end
+                    `OPst: begin
+                        if (register[rs_num] > `MEMMAX)
+                            halt <= 1;
+                        else
+                            data[register[rs_num]] <= register[rd_num];
+                        end
+                    `OPjr: begin
+                        if (register[rs_num] > `MEMMAX)
+                            halt <= 1;
+                        else
+                            pc <= register[rd_num];
+                        end
+                    `OPtrap: 
+                        $display("This is a trap!");
+                    default: register[rd_num] <= alu_output;
+                endcase
+                state <= `Start;
+                end
+            default: begin halt <= 1; end
+        endcase
+    end
+endmodule
+
+module tb_processor;
+    reg reset = 0;
+    reg clk = 0;
+    wire halted;
+
+    processor my_processor(halted, reset, clk);
+
+    initial begin
+        $dumpfile;
+        $dumpvars(0, my_processor);
+        #10 reset = 1;
+        #10 reset = 0;
+        while (!halted) begin
+            #10 clk = 1;
+            #10 clk = 0;
+        end
+        $finish;
     end
 endmodule
 
@@ -197,98 +316,3 @@ module tb_alu;
         end
 endmodule
 */
-
-module processor(halt, reset, clk);
-    output reg halt;
-    input reset, clk;
-    reg[`REGCOUNT] register[`REGSIZE];
-    wire[`WORDSIZE] alu_output;
-    wire alu_carry;
-    reg[`WORDSIZE] text[`MEMSIZE];
-    reg[`WORDSIZE] data[`MEMSIZE];
-    reg[`WORDSIZE] pc = 0;
-    reg[`WORDSIZE] inst_reg;
-    reg[`imm] sys;
-    reg[`rd] rs_num;
-    reg[`rd] rd_num;
-    reg[`op0] op_0;
-    reg[`op1] op_1;
-    reg[`op1] state;
-
-    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op_1);
-
-    always @(posedge reset) begin
-        halt <= 0;
-        pc <= 0;
-        state <= `Start;
-    // Initializing instructions with readmem/h
-        register[1] = 0;
-        register[2] = 10;
-        register[3] = 30;
-        data[0] = 420;
-        $readmemh0(text);
-    end
-
-    always @(posedge clk) begin
-        case (state)
-            `Start: begin 
-                inst_reg <= text[pc]; 
-                state <= `Decode;
-            end
-            `Decode: begin
-                pc <= pc + 1;            
-                op_1 <= inst_reg[`op1];
-                op_0 <= inst_reg[`op0];
-                rs_num <= inst_reg[`rs];
-                rd_num <= inst_reg[`rd];
-                state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteGeneral);
-            end
-            `ExecuteConstant: begin
-                case (op_0)
-                    default: register[rd_num][`REGSIZE] <= alu_output;
-                endcase
-                state <= `Start;
-            end
-            `ExecuteGeneral: begin
-                case (op_1)
-                    `OPld: begin
-                        if (register[rd_num] > `MEMMAX)
-                            halt <= 1;
-                        else
-                            register[rd_num] <= data[register[rs_num]][`WORDSIZE];
-                    end
-                    `OPst:
-                        begin
-                        if (register[rd_num] > `MEMMAX)
-                            halt <= 1;
-                        else
-                            data[register[rs_num]][`WORDSIZE] <= register[rd_num];
-                    end
-                    default: register[rd_num][`REGSIZE] <= alu_output;
-                endcase
-                state <= `Start;
-            end
-            default: begin halt <= 1; end
-        endcase
-    end
-endmodule
-
-module tb_processor;
-    reg reset = 0;
-    reg clk = 0;
-    wire halted;
-
-    processor my_processor(halted, reset, clk);
-
-    initial begin
-        $dumpfile;
-        $dumpvars(0, my_processor);
-        #10 reset = 1;
-        #10 reset = 0;
-        while (!halted) begin
-            #10 clk = 1;
-            #10 clk = 0;
-        end
-        $finish;
-    end
-endmodule
