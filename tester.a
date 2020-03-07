@@ -7,14 +7,15 @@ start:
 	and	$1, $2
 	anyi	$1
 	anyii	$1
-	bnz	$1, 20
-	bz	$1, 20
+	bnz	$6, 20
+	bz	$6, 20
+    trap
 	ci8	$1, 42
 	cii	$1, 2
 	cup	$1, 42
 	i2p	$1
 	ii2pp	$1
-        ld	$1, $2
+    ld	$1, $2
 	muli	$1, $2
 	mulii	$1, $2
 	mulp	$1, $2

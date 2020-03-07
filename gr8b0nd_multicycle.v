@@ -63,11 +63,12 @@
 // Trap Instruction
 `define OPtrap 8'h00
 
-// States (not opcodes)
+// Overarching States (not opcodes)
 `define Start 8'h02
 `define Decode 8'h03
 `define ExecuteGeneral 8'h04
 `define ExecuteConstant 8'h05
+`define Finish 8'h06
  
 module ALU(
         output [`WORDSIZE] ALU_out,
@@ -190,17 +191,20 @@ module processor(halt, reset, clk);
         register[1] = 0;
         register[2] = 0;
         register[3] = 30;
+        register[4] = 0;
+        register[5] = 0;
+        register[6] = 0;
         data[0] = 420;
         $readmemh0(text);
     end
 
     always @(posedge clk) begin
         case (state)
-            `Start: begin 
+            `Start: begin
                 inst_reg <= text[pc];
                 pc <= pc + 1;                 
                 state <= `Decode;
-                end
+            end
             `Decode: begin
                 op_1 <= inst_reg[`op1];
                 op_0 <= inst_reg[`op0];
@@ -208,12 +212,13 @@ module processor(halt, reset, clk);
                 rd_num <= inst_reg[`rd];
                 imm <= inst_reg[`imm];
                 state <= (inst_reg[`is_const]) ? (`ExecuteConstant) : (`ExecuteGeneral);
-                end
+            end
             `ExecuteConstant: begin
                 case (op_0)
                     `OPbz: begin
                         if (register[rd_num] == 0)
                             pc <= imm;
+                        
                         end
                     `OPbnz: begin
                         if (register[rd_num] != 0)
@@ -227,8 +232,8 @@ module processor(halt, reset, clk);
                         end
                     default: register[rd_num] <= alu_output;
                 endcase
-                state <= `Start;
-                end
+                state <= `Finish;
+            end
             `ExecuteGeneral: begin
                 case (op_1)
                     `OPld: begin
@@ -251,12 +256,19 @@ module processor(halt, reset, clk);
                         end
                     `OPtrap: 
                         $display("This is a trap!");
-                    default: register[rd_num] <= alu_output;
+                    default: begin
+                        register[rd_num] <= alu_output;
+                        end
                 endcase
+                state <= `Finish;
+            end
+            `Finish: begin
+                $display("Code: %h", op_1, "\trs: %d", register[rs_num], "\trd: %d", register[rd_num], "\tSource memory: %d", data[register[rs_num]], "\n");
                 state <= `Start;
-                end
-            default: begin halt <= 1; end
+            end
+            default: halt <= 1;
         endcase
+                 
     end
 endmodule
 
