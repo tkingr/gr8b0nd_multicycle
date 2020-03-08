@@ -12,9 +12,8 @@
  
 // Field placements and values
 `define is_const 15
+`define is_neg 15
 `define msb_8 7
-`define word_of 16
-`define half_word_of 8
 `define op0 15:12
 `define op1 15:8
 `define rd 3:0
@@ -30,7 +29,7 @@
 `define OPcii 4'hc
 `define OPcup 4'hd
  
-// 2 Register Instructions
+// 2 Register Instructions //
 `define OPaddi 8'h70
 `define OPaddii 8'h71
 `define OPmuli 8'h72
@@ -50,9 +49,9 @@
 `define OPst 8'h41
  
 // 1 Register Instructions
-`define OPanyi 8'h30
-`define OPanyii 8'h31
-`define OPnegi 8'h32
+`define OPanyi 8'h30 //
+`define OPanyii 8'h31 //
+`define OPnegi 8'h32 
 `define OPnegii 8'h33
 `define OPi2p 8'h20
 `define OPii2pp 8'h21
@@ -97,10 +96,10 @@ module ALU(
                 ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];
             end
             `OPshi:
-                ALU_result = (A > 0) ? (B << A) : (B >> A);
+                ALU_result = (A[`is_neg] == 1'b0) ? (B << A) : (B >> -A);
             `OPshii: begin
-                ALU_result[`UPPER16] = (A > 0) ? (B[`UPPER16] << A) : (B[`UPPER16] >> -A);
-                ALU_result[`LOWER16] = (A > 0) ? (B[`LOWER16] << A) : (B[`LOWER16] >> -A);
+                ALU_result[`UPPER16] = (A[`is_neg] == 1'b0) ? (B[`UPPER16] << A) : (B[`UPPER16] >> -A);
+                ALU_result[`LOWER16] = (A[`is_neg] == 1'b0) ? (B[`LOWER16] << A) : (B[`LOWER16] >> -A);
             end
             `OPslti:
                 ALU_result = (B < A);
@@ -174,8 +173,8 @@ module processor(halt, reset, clk);
         pc <= 0;
         state <= `Start;
     // Initializing instructions with readmem/h
-        register[1] = 1; // Source
-        register[2] = 100; // Destination
+        register[1] = -2; // Source
+        register[2] = 16'b1001000100101100; // Destination
         register[3] = 30;
         register[4] = 0;
         register[5] = 0;
