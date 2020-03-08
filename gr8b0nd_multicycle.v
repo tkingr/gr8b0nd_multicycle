@@ -1,6 +1,7 @@
  // Basic sizes
 `define WORDSIZE 15:0
 `define TAGWORDSIZE 16:0
+`define HALFTAGWORDSIZE 8:0
 `define OP  4:0
 `define REGCOUNT 15:0
 `define REGSIZE 15:0
@@ -12,6 +13,8 @@
 // Field placements and values
 `define is_const 15
 `define msb_8 7
+`define word_of 16
+`define half_word_of 8
 `define op0 15:12
 `define op1 15:8
 `define rd 3:0
@@ -71,38 +74,33 @@
 `define Finish 8'h06
  
 module ALU(
-        output [`WORDSIZE] ALU_out,
-        output CarryOut, // Flag indicating overflow        
+        output [`WORDSIZE] ALU_out,    
         input [`WORDSIZE] A, B, // A treated as source, B treated as destination
         input [`LOWER16] ALU_select // We are using same # as 8-bit op_1 field
     );
-    reg [15:0] ALU_result;
-    wire [16:0] temp;
+    reg [`REGSIZE] ALU_result;
     assign ALU_out = ALU_result; // Wire tied to output reg
-    assign temp = {1'b0, A} + {1'b0, B};
-    assign CarryOut = temp[16]; // Carryout flag
  
     always @(*) begin
         case(ALU_select)
-
             // 2-register instructions
-            `OPaddi:
-                ALU_result = (A + B);
-            `OPaddii: begin
-                ALU_result[`UPPER16] = A[`UPPER16] + B[`UPPER16];
-                ALU_result[`LOWER16] = A[`LOWER16] + B[`LOWER16];
-            end
-            `OPmuli:
+            `OPaddi, `OPaddp:
+                    ALU_result = (A + B);
+            `OPaddii, `OPaddpp: begin
+                    ALU_result[`UPPER16] = A[`UPPER16] + B[`UPPER16];
+                    ALU_result[`LOWER16] = A[`LOWER16] + B[`LOWER16];
+                end
+            `OPmuli, `OPmulp:
                 ALU_result = (A * B);
-            `OPmulii: begin
+            `OPmulii, `OPmulpp: begin
                 ALU_result[`UPPER16] = A[`UPPER16] * B[`UPPER16];
                 ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];
             end
             `OPshi:
-                ALU_result = (A > 0) ? (B << A) : (B >> -A);
+                ALU_result = (A > 0) ? (B << A) : (B >> A);
             `OPshii: begin
-                ALU_result[`UPPER16] = (A[`UPPER16] > 0) ? (B[`UPPER16] << A[`UPPER16]) : (B[`UPPER16] >> -A[`UPPER16]);
-                ALU_result[`LOWER16] = (A[`LOWER16] > 0) ? (B[`LOWER16] << A[`LOWER16]) : (B[`LOWER16] >> -A[`LOWER16]);
+                ALU_result[`UPPER16] = (A > 0) ? (B[`UPPER16] << A) : (B[`UPPER16] >> -A);
+                ALU_result[`LOWER16] = (A > 0) ? (B[`LOWER16] << A) : (B[`LOWER16] >> -A);
             end
             `OPslti:
                 ALU_result = (B < A);
@@ -110,22 +108,10 @@ module ALU(
                 ALU_result[`UPPER16] = (B[`UPPER16] < A[`UPPER16]);
                 ALU_result[`LOWER16] = (B[`LOWER16] < A[`LOWER16]);
             end
-            `OPaddp:
-                ALU_result = (A + B);
-            `OPaddpp: begin
-                ALU_result[`UPPER16] = A[`UPPER16] + B[`UPPER16];
-                ALU_result[`LOWER16] = A[`LOWER16] + B[`LOWER16];
-            end
-            `OPmulp:
-                ALU_result = (A * B);
-            `OPmulpp: begin
-                ALU_result[`UPPER16] = A[`UPPER16] * B[`UPPER16];
-                ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];    
-            end
             `OPand:
-                ALU_result = A & B;
+                ALU_result = (A & B);
             `OPor:
-                ALU_result = A | B;
+                ALU_result = (A | B);
             `OPxor:
                 ALU_result = A ^ B;
 
@@ -181,21 +167,21 @@ module processor(halt, reset, clk);
     reg[`op1] op_1;
     reg[`op1] state;
 
-    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op_1);
+    ALU my_alu(alu_output, register[rs_num], register[rd_num], op_1);
 
     always @(posedge reset) begin
         halt <= 0;
         pc <= 0;
         state <= `Start;
     // Initializing instructions with readmem/h
-        register[1] = 0;
-        register[2] = 0;
+        register[1] = 1; // Source
+        register[2] = 100; // Destination
         register[3] = 30;
         register[4] = 0;
         register[5] = 0;
         register[6] = 0;
-        data[0] = 420;
         $readmemh0(text);
+        $readmemh1(data);
     end
 
     always @(posedge clk) begin
@@ -256,14 +242,12 @@ module processor(halt, reset, clk);
                         end
                     `OPtrap: 
                         $display("This is a trap!");
-                    default: begin
-                        register[rd_num] <= alu_output;
-                        end
+                    default: register[rd_num] <= alu_output;
                 endcase
                 state <= `Finish;
             end
             `Finish: begin
-                $display("Code: %h", op_1, "\trs: %d", register[rs_num], "\trd: %d", register[rd_num], "\tSource memory: %d", data[register[rs_num]], "\n");
+                $display("Code: %h", op_1, "\trs: %d", register[rs_num], "\trd: %d", register[rd_num], "\tSource memory: %d", data[register[rs_num]], "\trd upper: %d", register[rd_num][`UPPER16], "\trd lower: %d", register[rd_num][`LOWER16], "\n");
                 state <= `Start;
             end
             default: halt <= 1;
