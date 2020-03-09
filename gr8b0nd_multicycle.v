@@ -11,23 +11,26 @@
 `define LOWER16 7:0
  
 // Field placements and values
+`define is_overflow 16
 `define is_const 15
 `define is_neg 15
 `define msb_8 7
+`define all_ones_8 8'b11111111
+`define all_zeros_8 8'b00000000
 `define op0 15:12
 `define op1 15:8
 `define rd 3:0
 `define rs 7:4
-`define imm 10:4
+`define imm 11:4
  
 // Branch Instructions
 `define OPbz 4'he //
 `define OPbnz 4'hf //
  
 // Constant Instructions
-`define OPci8 4'hb
-`define OPcii 4'hc
-`define OPcup 4'hd
+`define OPci8 4'hb //
+`define OPcii 4'hc //
+`define OPcup 4'hd //
  
 // 2 Register Instructions //
 `define OPaddi 8'h70 //
@@ -73,12 +76,16 @@
 `define Finish 8'h06
  
 module ALU(
-        output [`WORDSIZE] ALU_out,    
+        output [`WORDSIZE] ALU_out,
+        output ALU_carry,    
         input [`WORDSIZE] A, B, // A treated as source, B treated as destination
         input [`LOWER16] ALU_select // We are using same # as 8-bit op_1 field
     );
     reg [`REGSIZE] ALU_result;
+    wire [`TAGWORDSIZE] overflow_check;
     assign ALU_out = ALU_result; // Wire tied to output reg
+    assign overflow_check = {1'b0, A} + {1'b0, B};
+    assign ALU_carry = overflow_check[`is_overflow];
  
     always @(*) begin
         case(ALU_select)
@@ -146,15 +153,15 @@ module processor(halt, reset, clk);
     reg[`WORDSIZE] data[`MEMSIZE];
     reg[`WORDSIZE] pc;
     reg[`WORDSIZE] inst_reg;
-    reg[`imm] sys;
+    reg[`LOWER16] sys;
     reg[`rd] rs_num;
     reg[`rd] rd_num;
-    reg[`imm] imm;
+    reg[`LOWER16] imm;
     reg[`op0] op_0;
     reg[`op1] op_1;
     reg[`op1] state;
 
-    ALU my_alu(alu_output, register[rs_num], register[rd_num], op_1);
+    ALU my_alu(alu_output, alu_carry, register[rs_num], register[rd_num], op_1);
 
     always @(posedge reset) begin
         halt <= 0;
@@ -164,7 +171,7 @@ module processor(halt, reset, clk);
     // Initializing instructions with readmem/h
         register[1] = -50; // Source
         register[2] = 50; // Destination
-        register[3] = 30;
+        register[3] = 0;
         register[4] = 0;
         register[5] = 0;
         register[6] = 0;
@@ -198,10 +205,11 @@ module processor(halt, reset, clk);
                             pc <= imm;
                         end
                     `OPci8: begin
-                        if (imm & 8'h80)
-                            register[rd_num] <= (16'hff00 | (imm & 8'hff));
+                        if (imm[`msb_8])
+                            register[rd_num][`UPPER16] <= `all_ones_8;
                         else
-                            register[rd_num] <= (16'h0000 | (imm & 8'hff));
+                            register[rd_num][`UPPER16] <= `all_zeros_8;
+                        register[rd_num][`LOWER16] <= imm;
                         end
                     `OPcii: begin
                         register[rd_num][`UPPER16] <= imm;
@@ -228,7 +236,7 @@ module processor(halt, reset, clk);
                 state <= `Finish;
             end
             `Finish: begin
-                $display("Code: %h", op_1, "\trs: %d", register[rs_num], "\trd: %d", register[rd_num], "\tSource memory: %d", data[register[rs_num]], "\trd upper: %d", register[rd_num][`UPPER16], "\trd lower: %d", register[rd_num][`LOWER16], "\n");
+                $display("Code: %h", op_1, "\trs: %b", register[rs_num], "\trd: %b", register[rd_num], "\tSource memory: %d", data[register[rs_num]], "\trd upper: %d", register[rd_num][`UPPER16], "\trd lower: %d", register[rd_num][`LOWER16], "\n");
                 state <= `Start;
             end
             default: halt <= 1;
