@@ -21,8 +21,8 @@
 `define imm 10:4
  
 // Branch Instructions
-`define OPbz 4'he
-`define OPbnz 4'hf
+`define OPbz 4'he //
+`define OPbnz 4'hf //
  
 // Constant Instructions
 `define OPci8 4'hb
@@ -30,40 +30,40 @@
 `define OPcup 4'hd
  
 // 2 Register Instructions //
-`define OPaddi 8'h70
-`define OPaddii 8'h71
-`define OPmuli 8'h72
-`define OPmulii 8'h73
-`define OPshi 8'h74
-`define OPshii 8'h75
-`define OPslti 8'h76
-`define OPsltii 8'h77
-`define OPaddp 8'h60
-`define OPaddpp 8'h61
-`define OPmulp 8'h62
-`define OPmulpp 8'h63
-`define OPand 8'h50
-`define OPor 8'h51
-`define OPxor 8'h52
-`define OPld 8'h40
-`define OPst 8'h41
+`define OPaddi 8'h70 //
+`define OPaddii 8'h71 //
+`define OPmuli 8'h72 //
+`define OPmulii 8'h73 //
+`define OPshi 8'h74 //
+`define OPshii 8'h75 //
+`define OPslti 8'h76 //
+`define OPsltii 8'h77 //
+`define OPaddp 8'h60 //
+`define OPaddpp 8'h61 //
+`define OPmulp 8'h62 //
+`define OPmulpp 8'h63 //
+`define OPand 8'h50 //
+`define OPor 8'h51 //
+`define OPxor 8'h52 //
+`define OPld 8'h40 //
+`define OPst 8'h41 //
  
-// 1 Register Instructions
+// 1 Register Instructions //
 `define OPanyi 8'h30 //
 `define OPanyii 8'h31 //
-`define OPnegi 8'h32 
-`define OPnegii 8'h33
-`define OPi2p 8'h20
-`define OPii2pp 8'h21
-`define OPp2i 8'h22
-`define OPpp2ii 8'h23
-`define OPinvp 8'h24
-`define OPinvpp 8'h25
-`define OPnot 8'h10
-`define OPjr 8'h01
+`define OPnegi 8'h32 //
+`define OPnegii 8'h33 //
+`define OPi2p 8'h20 //
+`define OPii2pp 8'h21 //
+`define OPp2i 8'h22 //
+`define OPpp2ii 8'h23 //
+`define OPinvp 8'h24 //
+`define OPinvpp 8'h25 //
+`define OPnot 8'h10 //
+`define OPjr 8'h01 //
  
 // Trap Instruction
-`define OPtrap 8'h00
+`define OPtrap 8'h00 //
 
 // Overarching States (not opcodes)
 `define Start 8'h02
@@ -84,66 +84,54 @@ module ALU(
         case(ALU_select)
             // 2-register instructions
             `OPaddi, `OPaddp:
-                    ALU_result = (A + B);
+                ALU_result <= (A + B);
             `OPaddii, `OPaddpp: begin
-                    ALU_result[`UPPER16] = A[`UPPER16] + B[`UPPER16];
-                    ALU_result[`LOWER16] = A[`LOWER16] + B[`LOWER16];
+                ALU_result[`UPPER16] <= A[`UPPER16] + B[`UPPER16];
+                ALU_result[`LOWER16] <= A[`LOWER16] + B[`LOWER16];
                 end
             `OPmuli, `OPmulp:
-                ALU_result = (A * B);
+                ALU_result <= (A * B);
             `OPmulii, `OPmulpp: begin
-                ALU_result[`UPPER16] = A[`UPPER16] * B[`UPPER16];
-                ALU_result[`LOWER16] = A[`LOWER16] * B[`LOWER16];
+                ALU_result[`UPPER16] <= A[`UPPER16] * B[`UPPER16];
+                ALU_result[`LOWER16] <= A[`LOWER16] * B[`LOWER16];
             end
             `OPshi:
-                ALU_result = (A[`is_neg] == 1'b0) ? (B << A) : (B >> -A);
+                ALU_result <= (A[`is_neg] == 1'b0) ? (B << A) : (B >> -A);
             `OPshii: begin
-                ALU_result[`UPPER16] = (A[`is_neg] == 1'b0) ? (B[`UPPER16] << A) : (B[`UPPER16] >> -A);
-                ALU_result[`LOWER16] = (A[`is_neg] == 1'b0) ? (B[`LOWER16] << A) : (B[`LOWER16] >> -A);
+                ALU_result[`UPPER16] <= (A[`is_neg] == 1'b0) ? (B[`UPPER16] << A) : (B[`UPPER16] >> -A);
+                ALU_result[`LOWER16] <= (A[`is_neg] == 1'b0) ? (B[`LOWER16] << A) : (B[`LOWER16] >> -A);
             end
             `OPslti:
-                ALU_result = (B < A);
+                ALU_result <= (B < A);
             `OPsltii: begin
-                ALU_result[`UPPER16] = (B[`UPPER16] < A[`UPPER16]);
-                ALU_result[`LOWER16] = (B[`LOWER16] < A[`LOWER16]);
+                ALU_result[`UPPER16] <= (B[`UPPER16] < A[`UPPER16]);
+                ALU_result[`LOWER16] <= (B[`LOWER16] < A[`LOWER16]);
             end
             `OPand:
-                ALU_result = (A & B);
+                ALU_result <= (A & B);
             `OPor:
-                ALU_result = (A | B);
+                ALU_result <= (A | B);
             `OPxor:
-                ALU_result = A ^ B;
+                ALU_result <= (A ^ B);
 
             // 1-register instructions
             `OPanyi:
-                ALU_result = (B) ? -1 : 0;
+                ALU_result <= (B) ? -1 : 0;
             `OPanyii: begin
-                ALU_result[`UPPER16] = (B[`UPPER16]) ? -1 : 0;
-                ALU_result[`LOWER16] = (B[`LOWER16]) ? -1 : 0;
+                ALU_result[`UPPER16] <= (B[`UPPER16]) ? -1 : 0;
+                ALU_result[`LOWER16] <= (B[`LOWER16]) ? -1 : 0;
             end
             `OPnegi:
-                ALU_result = -(B);
+                ALU_result <= -(B);
             `OPnegii: begin
-                ALU_result[`UPPER16] = -B[`UPPER16];
-                ALU_result[`LOWER16] = -B[`LOWER16];
+                ALU_result[`UPPER16] <= -B[`UPPER16];
+                ALU_result[`LOWER16] <= -B[`LOWER16];
             end
-            `OPi2p:
-                ALU_result = B;
-            `OPii2pp:
-                ALU_result = B;
-            `OPp2i:
-                ALU_result = B;
-            `OPpp2ii:
-                ALU_result = B;
-            `OPinvp:
-                ALU_result = (1 / B);
-            `OPinvpp: begin
-                ALU_result[`UPPER16] = (1 / B[`UPPER16]);
-                ALU_result[`LOWER16] = (1 / B[`LOWER16]);
-            end
+            `OPi2p, `OPii2pp, `OPp2i, `OPpp2ii, `OPinvp, `OPinvpp:
+                ALU_result <= B;
             `OPnot:
-                ALU_result = ~(B);
-            default: ALU_result = B;
+                ALU_result <= ~(B);
+            default: ALU_result <= B;
         endcase
     end
 endmodule
@@ -156,7 +144,7 @@ module processor(halt, reset, clk);
     wire alu_carry;
     reg[`WORDSIZE] text[`MEMSIZE];
     reg[`WORDSIZE] data[`MEMSIZE];
-    reg[`WORDSIZE] pc = 0;
+    reg[`WORDSIZE] pc;
     reg[`WORDSIZE] inst_reg;
     reg[`imm] sys;
     reg[`rd] rs_num;
@@ -171,10 +159,11 @@ module processor(halt, reset, clk);
     always @(posedge reset) begin
         halt <= 0;
         pc <= 0;
+        sys <= 0;
         state <= `Start;
     // Initializing instructions with readmem/h
-        register[1] = -2; // Source
-        register[2] = 16'b1001000100101100; // Destination
+        register[1] = -50; // Source
+        register[2] = 50; // Destination
         register[3] = 30;
         register[4] = 0;
         register[5] = 0;
@@ -203,7 +192,6 @@ module processor(halt, reset, clk);
                     `OPbz: begin
                         if (register[rd_num] == 0)
                             pc <= imm;
-                        
                         end
                     `OPbnz: begin
                         if (register[rd_num] != 0)
@@ -215,32 +203,26 @@ module processor(halt, reset, clk);
                         else
                             register[rd_num] <= (16'h0000 | (imm & 8'hff));
                         end
+                    `OPcii: begin
+                        register[rd_num][`UPPER16] <= imm;
+                        register[rd_num][`LOWER16] <= imm;
+                        end
+                    `OPcup:
+                        register[rd_num][`UPPER16] <= imm;
                     default: register[rd_num] <= alu_output;
                 endcase
                 state <= `Finish;
             end
             `ExecuteGeneral: begin
                 case (op_1)
-                    `OPld: begin
-                        if (register[rs_num] > `MEMMAX)
-                            halt <= 1;
-                        else
-                            register[rd_num] <= data[register[rs_num]];
-                        end
-                    `OPst: begin
-                        if (register[rs_num] > `MEMMAX)
-                            halt <= 1;
-                        else
-                            data[register[rs_num]] <= register[rd_num];
-                        end
-                    `OPjr: begin
-                        if (register[rs_num] > `MEMMAX)
-                            halt <= 1;
-                        else
-                            pc <= register[rd_num];
-                        end
+                    `OPld: 
+                        register[rd_num] <= data[register[rs_num]];
+                    `OPst:
+                        data[register[rs_num]] <= register[rd_num];
+                    `OPjr:
+                        pc <= register[rd_num];
                     `OPtrap: 
-                        $display("This is a trap!");
+                        sys <= 1;
                     default: register[rd_num] <= alu_output;
                 endcase
                 state <= `Finish;
